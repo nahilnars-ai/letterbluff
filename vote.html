@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vote — Letterbluff</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Grotesk:wght@400;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{ --dark:#14181c; --dark-2:#1c2228; --orange:#ff8000; --green:#00e054; --blue:#40bcf4; --text:#fff; --dim:#8a9aa8; }
+  *{ margin:0; padding:0; box-sizing:border-box; }
+  body{ background:var(--dark); color:var(--text); font-family:'Space Grotesk', sans-serif; min-height:100dvh; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:24px; text-align:center; }
+  h1{ font-family:'Bebas Neue', sans-serif; font-size:32px; letter-spacing:2px; margin-bottom:6px;
+      background: linear-gradient(90deg, var(--orange), var(--green), var(--blue)); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  p{ color:var(--dim); font-size:13px; margin-bottom:26px; }
+  input{ width:100%; max-width:280px; background:var(--dark-2); border:1px solid #303a42; border-radius:6px; padding:12px; color:var(--text); font-size:14px; margin-bottom:16px; }
+  .choices{ display:flex; gap:10px; width:100%; max-width:280px; }
+  .choice-btn{ flex:1; padding:22px 6px; border-radius:8px; border:1px solid #303a42; background:var(--dark-2); color:var(--text); font-family:'Bebas Neue'; font-size:22px; cursor:pointer; }
+  .choice-btn:active{ transform:scale(0.95); }
+  .status{ margin-top:20px; font-size:13px; color:var(--green); min-height:18px; }
+</style>
+</head>
+<body>
+  <h1>LETTERBLUFF</h1>
+  <p>Qui a vraiment écrit cet avis ? Tape ton pseudo une fois, puis choisis.</p>
+  <input type="text" id="nameInput" placeholder="Ton pseudo">
+  <div class="choices">
+    <button class="choice-btn" onclick="vote(0)">1</button>
+    <button class="choice-btn" onclick="vote(1)">2</button>
+    <button class="choice-btn" onclick="vote(2)">3</button>
+  </div>
+  <div class="status" id="status"></div>
+
+<script>
+const SUPABASE_URL = "https://YOUR-PROJECT.supabase.co";
+const SUPABASE_ANON_KEY = "YOUR-ANON-KEY";
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+const nameInput = document.getElementById("nameInput");
+nameInput.value = localStorage.getItem("letterbluff_name") || "";
+
+async function vote(choice){
+  const name = nameInput.value.trim() || "Anonyme";
+  localStorage.setItem("letterbluff_name", name);
+  const voterId = name; // simple : un pseudo = un vote par manche
+  const status = document.getElementById("status");
+
+  const { data: state } = await supabase.from("game_state").select("*").eq("id", 1).single();
+  if (!state || state.revealed) { status.textContent = "Le vote est fermé pour cette manche."; return; }
+
+  const seen = state.seen_voter_ids || [];
+  if (seen.includes(voterId)) { status.textContent = "Tu as déjà voté pour cette manche !"; return; }
+
+  const votes = { ...(state.votes || {"0":0,"1":0,"2":0}) };
+  votes[String(choice)] = (votes[String(choice)] || 0) + 1;
+  const voters = [...(state.voters || []), { name, choice }].slice(-16);
+
+  await supabase.from("game_state").update({
+    votes, voters, seen_voter_ids: [...seen, voterId], updated_at: new Date().toISOString(),
+  }).eq("id", 1);
+
+  status.textContent = "Vote enregistré, merci !";
+}
+</script>
+</body>
+</html>
